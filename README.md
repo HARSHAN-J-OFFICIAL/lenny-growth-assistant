@@ -125,7 +125,8 @@ Before running the application, ensure the host machine has:
    ollama pull llama3.2
    ollama pull qwen2.5:1.5b
    ```
-4. *(Optional for Native Dev)*: Python 3.12 and Node.js 20+.
+4. **Python 3.12**: Required on host machine for running `scripts/download_transcripts.py` and `backend/ingest.py` before container startup.
+5. *(Optional for Native Dev)*: Node.js 20+.
 
 ---
 

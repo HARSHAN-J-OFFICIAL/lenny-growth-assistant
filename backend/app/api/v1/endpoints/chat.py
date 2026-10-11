@@ -78,15 +78,24 @@ async def chat_completion(
         await db.flush()
         session_id = session_obj.id
 
-    # 2. Record User Message in PostgreSQL
+    # 2. Record User Message in PostgreSQL with client/user metadata
     user_msg_id = uuid.uuid4()
+    user_meta = dict(payload.user_metadata or {})
+    user_meta.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    user_meta.setdefault("model_provider", payload.model_provider or session_obj.model_provider)
+    user_meta.setdefault("model_name", payload.model_name or session_obj.model_name)
+    if payload.skill:
+        user_meta.setdefault("skill", payload.skill)
+    if payload.agent_sdk:
+        user_meta.setdefault("agent_sdk", payload.agent_sdk)
+
     user_msg = MessageModel(
         id=user_msg_id,
         session_id=session_id,
         role="user",
         content=payload.message,
         citations=[],
-        metadata_payload={},
+        metadata_payload=user_meta,
     )
     db.add(user_msg)
     await db.flush()
@@ -105,19 +114,22 @@ async def chat_completion(
         extracted_artifacts = agent_res.artifacts
         evidence_status_val = agent_res.evidence_status
 
-        # Grounding guarantee: If no citations gathered via tool call, execute hybrid retrieval
-        if not citation_records:
+        # Grounding guarantee: If no citations gathered via tool call and evidence is sufficient, execute hybrid retrieval
+        if not citation_records and evidence_status_val != "insufficient":
             retrieval_res = await asyncio.to_thread(ingestion_manager.retriever.search, payload.message, top_k=4)
-            for p in retrieval_res.passages:
-                citation_records.append({
-                    "guest": p.guest,
-                    "speaker": p.speaker,
-                    "episode_title": p.episode_title,
-                    "episode_slug": p.episode_slug,
-                    "timestamp_url": p.timestamp_url,
-                    "start_timestamp": p.start_timestamp,
-                    "score": p.score,
-                })
+            if retrieval_res.evidence_status == EvidenceStatus.RELEVANT_EVIDENCE_FOUND:
+                for p in retrieval_res.passages:
+                    citation_records.append({
+                        "guest": p.guest,
+                        "speaker": p.speaker,
+                        "episode_title": p.episode_title,
+                        "episode_slug": p.episode_slug,
+                        "timestamp_url": p.timestamp_url,
+                        "start_timestamp": p.start_timestamp,
+                        "score": p.score,
+                    })
+            else:
+                evidence_status_val = "insufficient"
 
         meta_payload = {
             "evidence_status": evidence_status_val,
@@ -143,19 +155,22 @@ async def chat_completion(
         extracted_artifacts = agent_res.artifacts
         evidence_status_val = agent_res.evidence_status
 
-        # Grounding guarantee: If no citations gathered via tool call, execute hybrid retrieval
-        if not citation_records:
+        # Grounding guarantee: If no citations gathered via tool call and evidence is sufficient, execute hybrid retrieval
+        if not citation_records and evidence_status_val != "insufficient":
             retrieval_res = await asyncio.to_thread(ingestion_manager.retriever.search, payload.message, top_k=4)
-            for p in retrieval_res.passages:
-                citation_records.append({
-                    "guest": p.guest,
-                    "speaker": p.speaker,
-                    "episode_title": p.episode_title,
-                    "episode_slug": p.episode_slug,
-                    "timestamp_url": p.timestamp_url,
-                    "start_timestamp": p.start_timestamp,
-                    "score": p.score,
-                })
+            if retrieval_res.evidence_status == EvidenceStatus.RELEVANT_EVIDENCE_FOUND:
+                for p in retrieval_res.passages:
+                    citation_records.append({
+                        "guest": p.guest,
+                        "speaker": p.speaker,
+                        "episode_title": p.episode_title,
+                        "episode_slug": p.episode_slug,
+                        "timestamp_url": p.timestamp_url,
+                        "start_timestamp": p.start_timestamp,
+                        "score": p.score,
+                    })
+            else:
+                evidence_status_val = "insufficient"
 
         meta_payload = {
             "evidence_status": evidence_status_val,
@@ -173,21 +188,22 @@ async def chat_completion(
 
         citation_records = []
         evidence_blocks = []
-        for p in retrieval_res.passages:
-            citation_records.append({
-                "guest": p.guest,
-                "speaker": p.speaker,
-                "episode_title": p.episode_title,
-                "episode_slug": p.episode_slug,
-                "timestamp_url": p.timestamp_url,
-                "start_timestamp": p.start_timestamp,
-                "score": p.score,
-            })
-            evidence_blocks.append(
-                f"--- [Episode: {p.episode_title} | Guest: {p.guest} | Timestamp: {p.start_timestamp}]\n"
-                f"Source URL: {p.timestamp_url}\n"
-                f"{p.text}\n"
-            )
+        if retrieval_res.evidence_status == EvidenceStatus.RELEVANT_EVIDENCE_FOUND:
+            for p in retrieval_res.passages:
+                citation_records.append({
+                    "guest": p.guest,
+                    "speaker": p.speaker,
+                    "episode_title": p.episode_title,
+                    "episode_slug": p.episode_slug,
+                    "timestamp_url": p.timestamp_url,
+                    "start_timestamp": p.start_timestamp,
+                    "score": p.score,
+                })
+                evidence_blocks.append(
+                    f"--- [Episode: {p.episode_title} | Guest: {p.guest} | Timestamp: {p.start_timestamp}]\n"
+                    f"Source URL: {p.timestamp_url}\n"
+                    f"{p.text}\n"
+                )
 
         context_str = "\n".join(evidence_blocks) if evidence_blocks else "No relevant transcript passages found."
         use_ship30 = is_ship30_requested(payload.message, payload.skill)

@@ -42,6 +42,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Official Agent SDK engine: 'pi' for Pi Coding Agent SDK, 'claude' for Claude Agent SDK, or None",
     )
+    user_metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional client-provided user or environment metadata (e.g. client timestamp, user persona, client version)",
+    )
 
 
 class ChatMessageResponse(BaseModel):

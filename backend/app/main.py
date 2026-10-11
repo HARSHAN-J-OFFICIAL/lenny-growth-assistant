@@ -2,15 +2,57 @@
 Main FastAPI application entrypoint for The Lenny Growth Assistant.
 """
 
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.services.ingestion_manager import ingestion_manager
+
+# Configure structured application logging
+logging.basicConfig(
+    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("lenny.http")
+
+
+class RequestCorrelationMiddleware(BaseHTTPMiddleware):
+    """
+    Structured HTTP request observability:
+    - Generates or propagates X-Request-ID correlation tokens
+    - Measures and logs exact route processing latencies
+    - Emits structured diagnostic logs on endpoint failures
+    - Returns X-Request-ID in HTTP response headers
+    """
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        request.state.request_id = request_id
+        start_time = time.perf_counter()
+
+        try:
+            response = await call_next(request)
+            duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            response.headers["X-Request-ID"] = request_id
+            logger.info(
+                f"[{request_id}] {request.method} {request.url.path} -> {response.status_code} ({duration_ms}ms)"
+            )
+            return response
+        except Exception as exc:
+            duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            logger.error(
+                f"[{request_id}] {request.method} {request.url.path} FAILED after {duration_ms}ms: {exc}",
+                exc_info=True,
+            )
+            raise
 
 
 @asynccontextmanager
@@ -41,7 +83,10 @@ def create_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # 1. Environment-driven CORS configuration
+    # 1. Observability: Request correlation & latency logging
+    app.add_middleware(RequestCorrelationMiddleware)
+
+    # 2. Environment-driven CORS configuration
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.ALLOWED_ORIGINS,
@@ -50,7 +95,7 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # 2. Centralized structured error handling
+    # 3. Centralized structured error handling
     register_exception_handlers(app)
 
     # 3. Mount Versioned API Routers

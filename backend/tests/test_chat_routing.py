@@ -80,7 +80,13 @@ async def test_chat_routing_openai_unconfigured_fallback():
             data = res.json()
             assert data["role"] == "assistant"
             assert "Notice" in data["content"] or "unconfigured" in data["content"].lower()
-            assert len(data["citations"]) > 0
+            # If evidence is sufficient, genuine citations must be attached; if insufficient, citations must remain empty
+            if data.get("metadata", {}).get("evidence_status") in ("sufficient", "relevant_evidence_found"):
+                assert len(data["citations"]) > 0
+                for c in data["citations"]:
+                    assert "guest" in c and "episode_title" in c
+            else:
+                assert len(data["citations"]) == 0
     finally:
         settings.OPENAI_API_KEY = original_key
 

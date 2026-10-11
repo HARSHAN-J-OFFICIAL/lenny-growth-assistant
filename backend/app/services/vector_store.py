@@ -104,6 +104,34 @@ class VectorStore:
 
         return results
 
+    def get_chunk_scores(self, query: str, chunk_ids: List[str]) -> Dict[str, float]:
+        """
+        Compute cosine similarity scores for specific chunk IDs against the query vector.
+        Enables accurate semantic score attribution for candidates retrieved via lexical search.
+        """
+        if not self.is_available() or not query.strip() or not chunk_ids:
+            return {}
+
+        chunk_id_set = set(chunk_ids)
+        target_indices = [(c.chunk_id, idx) for idx, c in enumerate(self.chunks) if c.chunk_id in chunk_id_set]
+        if not target_indices:
+            return {}
+
+        model = self._get_model()
+        query_emb_gen = model.embed([query])
+        query_vec = next(iter(query_emb_gen)).astype(np.float32)
+
+        norm = np.linalg.norm(query_vec)
+        if norm > 0:
+            query_vec = query_vec / norm
+
+        scores: Dict[str, float] = {}
+        for cid, idx in target_indices:
+            sim = float(np.dot(self.embeddings[idx], query_vec))
+            scores[cid] = sim
+
+        return scores
+
     def save(self) -> None:
         """Persist embeddings matrix and chunk metadata to disk."""
         if not self.is_available():

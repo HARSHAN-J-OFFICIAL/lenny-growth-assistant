@@ -149,6 +149,14 @@ class HybridRetriever:
             entry["lexical_score"] = score
             entry["lexical_rank"] = rank
 
+        # Ensure all lexical candidates have an accurate semantic score rather than None / 0.0
+        missing_sem_ids = [cid for cid, d in candidate_map.items() if d["semantic_score"] is None]
+        if missing_sem_ids and self.vector_store.is_available():
+            computed_sem_scores = self.vector_store.get_chunk_scores(clean_query, missing_sem_ids)
+            for cid, s_score in computed_sem_scores.items():
+                if cid in candidate_map:
+                    candidate_map[cid]["semantic_score"] = s_score
+
         # 4. Apply topical boost for query-topic overlap
         for chunk_id, data in candidate_map.items():
             ch = data["chunk"]
@@ -205,47 +213,73 @@ class HybridRetriever:
 
         latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
-        # 7. Evaluate Evidence Status & Grounding
-        # A retrieved passage must be genuinely grounded, not just matching accidental sparse tokens.
+        # 7. Evaluate Evidence Status & Grounding across top passages
+        # A query is grounded if at least one candidate among the top passages demonstrates
+        # genuine semantic, lexical, or entity-specific alignment.
         query_tokens = [t for t in tokenize_text(clean_query) if t not in COMMON_STOPWORDS and len(t) > 2]
         unique_q_tokens = set(query_tokens)
 
-        if not deduped_passages:
-            evidence_status = EvidenceStatus.INSUFFICIENT_EVIDENCE
-            grounding_reason = "no_candidate_passages_found"
-            term_coverage = 0.0
-        else:
-            top = deduped_passages[0]
-            sem = top.semantic_score or 0.0
-            lex = top.lexical_score or 0.0
+        eval_window = deduped_passages[:min(3, len(deduped_passages))] if deduped_passages else []
+
+        best_grounded_passage: Optional[RetrievedPassage] = None
+        best_grounding_reason = "insufficient_grounding"
+        best_coverage = 0.0
+
+        for p in eval_window:
+            sem = p.semantic_score or 0.0
+            lex = p.lexical_score or 0.0
 
             # Compute term coverage of the query's distinct content tokens
-            passage_corpus = f"{top.text} {top.episode_title} {top.guest} {top.speaker}".lower()
+            passage_corpus = f"{p.text} {p.episode_title} {p.guest} {p.speaker}".lower()
             passage_tokens = set(tokenize_text(passage_corpus))
             matched_terms = unique_q_tokens.intersection(passage_tokens)
-            term_coverage = len(matched_terms) / len(unique_q_tokens) if unique_q_tokens else 1.0
+            coverage = len(matched_terms) / len(unique_q_tokens) if unique_q_tokens else 1.0
+            if coverage > best_coverage:
+                best_coverage = coverage
+
+            # Direct Guest / Speaker / Title Grounding:
+            # Check if any content token directly references the interviewed guest, speaker, or title
+            entity_in_meta = any(
+                t in p.guest.lower() or t in p.speaker.lower() or t in p.episode_title.lower() or t in p.episode_slug.lower()
+                for t in unique_q_tokens
+            )
+
+            p_grounded = False
+            p_reason = ""
 
             # Grounding criteria:
             # 1. High Semantic Confidence: sem >= 0.70 (handles varied conversational vocabulary)
-            # 2. Balanced Hybrid: sem >= 0.62 and (term_coverage >= 0.40 or lex >= 10.0)
-            # 3. Strong Named Entity / Keyword Match: term_coverage >= 0.60 and lex >= 15.0 and sem >= 0.60
+            # 2. Balanced Hybrid Match: sem >= 0.60 and (coverage >= 0.40 or lex >= 10.0)
+            # 3. Strong Lexical & Multi-Term Match: coverage >= 0.60 and lex >= 12.0 and sem >= 0.50
+            # 4. Direct Entity/Guest Match: entity_in_meta and coverage >= 0.60 and (sem >= 0.55 or lex >= 8.0)
             if sem >= 0.70:
-                is_grounded = True
-                grounding_reason = "high_semantic_confidence"
-            elif sem >= 0.62 and (term_coverage >= 0.40 or lex >= 10.0):
-                is_grounded = True
-                grounding_reason = "balanced_hybrid_match"
-            elif term_coverage >= 0.60 and lex >= 15.0 and sem >= 0.60:
-                is_grounded = True
-                grounding_reason = "strong_lexical_entity_match"
-            else:
-                is_grounded = False
-                grounding_reason = f"insufficient_grounding (sem={sem:.3f}, coverage={term_coverage:.2f}, lex={lex:.1f})"
+                p_grounded = True
+                p_reason = "high_semantic_confidence"
+            elif sem >= 0.60 and (coverage >= 0.40 or lex >= 10.0):
+                p_grounded = True
+                p_reason = "balanced_hybrid_match"
+            elif coverage >= 0.60 and lex >= 12.0 and sem >= 0.50:
+                p_grounded = True
+                p_reason = "strong_lexical_entity_match"
+            elif entity_in_meta and coverage >= 0.60 and (sem >= 0.55 or lex >= 8.0):
+                p_grounded = True
+                p_reason = "direct_guest_or_topic_match"
 
-            if is_grounded and top.score >= self.evidence_threshold:
-                evidence_status = EvidenceStatus.RELEVANT_EVIDENCE_FOUND
+            if p_grounded and p.score >= self.evidence_threshold:
+                best_grounded_passage = p
+                best_grounding_reason = f"{p_reason} (chunk={p.chunk_id}, sem={sem:.3f}, coverage={coverage:.2f}, lex={lex:.1f})"
+                break
             else:
-                evidence_status = EvidenceStatus.INSUFFICIENT_EVIDENCE
+                best_grounding_reason = f"insufficient_grounding (chunk={p.chunk_id}, sem={sem:.3f}, coverage={coverage:.2f}, lex={lex:.1f})"
+
+        if best_grounded_passage is not None:
+            evidence_status = EvidenceStatus.RELEVANT_EVIDENCE_FOUND
+            grounding_reason = best_grounding_reason
+            term_coverage = best_coverage
+        else:
+            evidence_status = EvidenceStatus.INSUFFICIENT_EVIDENCE
+            grounding_reason = best_grounding_reason if eval_window else "no_candidate_passages_found"
+            term_coverage = best_coverage
 
         diagnostics = {
             "semantic_candidates_count": len(semantic_results),
