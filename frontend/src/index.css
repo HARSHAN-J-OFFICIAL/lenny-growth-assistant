@@ -1,0 +1,222 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --signal-shell: #101B27;
+    --signal-sidebar: #172634;
+    --signal-elevated: #233645;
+    --signal-paper: #F4EEE4;
+    --signal-paper-light: #FFF9F0;
+    --signal-coral: #FF7952;
+    --signal-coral-hover: #FF6436;
+    --signal-mint: #75D2BB;
+    --signal-mint-dark: #48B49B;
+    --signal-sage: #D7E1D8;
+    --signal-dark-text: #142331;
+    --signal-muted-dark: #687782;
+    --signal-light-text: #FFF6E9;
+    --signal-border-dark: rgba(255, 255, 255, 0.08);
+    --signal-border-light: rgba(20, 35, 49, 0.12);
+  }
+
+  body {
+    background-color: var(--signal-shell);
+    color: var(--signal-light-text);
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    selection-background-color: rgba(255, 121, 82, 0.25);
+    selection-color: #142331;
+  }
+
+  #root {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    overflow: hidden;
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: "DM Serif Display", Georgia, serif;
+    letter-spacing: -0.015em;
+  }
+
+  code, pre, .font-mono {
+    font-family: "IBM Plex Mono", monospace;
+  }
+}
+
+/* Custom Scrollbars: Dark and Paper Contexts */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(104, 119, 130, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(104, 119, 130, 0.5);
+}
+
+/* Editorial Reading Surface for Markdown (Warm Paper context) */
+.editorial-prose {
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.72;
+  color: #142331;
+}
+
+.editorial-prose h1 {
+  font-family: "DM Serif Display", Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 400;
+  color: #101B27;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  line-height: 1.25;
+}
+
+.editorial-prose h2 {
+  font-family: "DM Serif Display", Georgia, serif;
+  font-size: 1.28rem;
+  font-weight: 400;
+  color: #142331;
+  margin-top: 1.1em;
+  margin-bottom: 0.45em;
+  line-height: 1.3;
+}
+
+.editorial-prose h3 {
+  font-family: "DM Sans", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #172634;
+  margin-top: 0.9em;
+  margin-bottom: 0.35em;
+}
+
+.editorial-prose p {
+  margin-top: 0.55em;
+  margin-bottom: 0.55em;
+  color: #1F3040;
+}
+
+.editorial-prose strong {
+  font-weight: 600;
+  color: #101B27;
+}
+
+.editorial-prose ul {
+  list-style-type: disc;
+  padding-left: 1.4em;
+  margin: 0.6em 0;
+}
+
+.editorial-prose ol {
+  list-style-type: decimal;
+  padding-left: 1.4em;
+  margin: 0.6em 0;
+}
+
+.editorial-prose li {
+  margin: 0.25em 0;
+  color: #1F3040;
+}
+
+.editorial-prose blockquote {
+  border-left: 3px solid #FF7952;
+  padding-left: 14px;
+  margin: 0.9em 0;
+  color: #4A5B69;
+  font-style: italic;
+  background: rgba(255, 121, 82, 0.04);
+  border-radius: 0 6px 6px 0;
+}
+
+.editorial-prose code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.86em;
+  background: rgba(20, 35, 49, 0.08);
+  color: #101B27;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+
+.editorial-prose pre {
+  background: #172634;
+  color: #FFF6E9;
+  padding: 14px 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.85em 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.editorial-prose pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.editorial-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.88rem;
+}
+
+.editorial-prose th,
+.editorial-prose td {
+  border: 1px solid rgba(20, 35, 49, 0.15);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.editorial-prose th {
+  background: rgba(20, 35, 49, 0.06);
+  font-weight: 600;
+  color: #142331;
+}
+
+.editorial-prose tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Custom Waveform Pulse Animation */
+@keyframes signalPulse {
+  0%, 100% {
+    transform: scaleY(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scaleY(1.4);
+    opacity: 1;
+  }
+}
+
+.animate-signal-pulse {
+  animation: signalPulse 2s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+/* Focus Rings */
+.focus-signal {
+  outline: none;
+}
+.focus-signal:focus-visible {
+  box-shadow: 0 0 0 2px #FF7952;
+}

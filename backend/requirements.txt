@@ -1,0 +1,33 @@
+# ==============================================================================
+# The Lenny Growth Assistant - Backend Dependencies (Python 3.12)
+# ==============================================================================
+
+# Core Web Framework & ASGI Server
+fastapi==0.115.11
+uvicorn[standard]==0.34.0
+
+# Data Validation & Configuration Management
+pydantic==2.10.6
+pydantic-settings==2.8.1
+
+# Asynchronous HTTP Client & LLM SDKs
+httpx==0.28.1
+openai>=1.0.0
+anthropic>=0.40.0
+
+# Persistence Layer & Async Database Drivers
+sqlalchemy[asyncio]==2.0.38
+aiosqlite==0.21.0
+asyncpg==0.30.0
+
+# RAG & Information Retrieval
+fastembed==0.9.0
+rank-bm25==0.2.2
+numpy>=1.26.0
+
+# Parsing Utilities
+PyYAML>=6.0.0
+
+# Testing Suite
+pytest==8.3.5
+pytest-asyncio==0.25.3

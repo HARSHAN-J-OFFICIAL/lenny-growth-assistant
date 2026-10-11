@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+.git
+.gitignore
+.env
+.env.*
+npm-debug.log
+test_chrome_e2e.mjs
+src/assets/hero.png

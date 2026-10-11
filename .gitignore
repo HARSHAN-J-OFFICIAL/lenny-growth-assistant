@@ -1,0 +1,92 @@
+# =============================================================================
+# The Lenny Growth Assistant — Root .gitignore
+# Excludes secrets, dependencies, build caches, generated indices, and private files
+# =============================================================================
+
+# --- Environment Variables & Secrets (CRITICAL SECURITY) ---
+.env
+.env.*
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# Allow documented environment templates
+!.env.example
+!.env.*.example
+!backend/.env.example
+
+# --- Python Virtual Environments & Bytecode ---
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- Testing & Quality Caches ---
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+
+# --- Node.js & Frontend Build Outputs ---
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/.vite/
+**/*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Database & Generated Search Indices ---
+*.db
+*.sqlite
+*.sqlite3
+*.npy
+*.npz
+data/indices/
+backend/data/
+lenny_assistant.db
+
+# --- Podcast Transcripts Corpus (Acquired via scripts/download_transcripts.py) ---
+data/transcripts/
+data/transcripts_temp/
+data/indices/
+
+# --- Local Workspace Inventory & Dev Scratchpad ---
+project_tree.txt
+scratch/
+*.log
+private/
+internal/
+temp_*.json
+test_in.json
+agent_service/temp_test.json
+agent_service/test_in.json
+
+# --- Unreferenced Frontend Template Assets & Media Recordings ---
+frontend/src/assets/hero.png
+*.webp
+*.mp4
+
+# --- Operating System & Editor Metadata ---
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
